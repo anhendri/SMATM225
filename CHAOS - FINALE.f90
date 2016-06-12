@@ -71,14 +71,14 @@ program main
   implicit none
 
   external                       :: calc
-  integer                        :: INDX, POSX, POSY, cas, NTOT, NUMT
+  integer                        :: INDX, POSX, POSY, cas, NTOT, NUMT, NTWK
   real(kind=8)                   :: TMIN, TMAX, PAST, TINI, H0, H1, PASF, PASP, E0
   real(kind=8), allocatable,save :: u0(:), u1(:), VARS(:,:)
 
     call INIT_RANDOM_SEED()                                                                                                ! INITIALISATION DU GENERATEUR ALEATOIRE
 
     open(10,file='INPUT.in')                                                                                               ! OUVERTURE DU FICHIER D'ENTREE
-    read(10,*) NVAR, ALPH, cas, TMIN, TMAX, PAST, PASP, PASF, E0                                                           ! LECTURE DES PARAMETRES DANS LE FICHIER D'ENTREE
+    read(10,*) NVAR, ALPH, cas, TMIN, TMAX, PAST, PASP, PASF, E0, NTWK                                                     ! LECTURE DES PARAMETRES DANS LE FICHIER D'ENTREE
     close(10)                                                                                                              ! FERMETURE DU FICHIER D'ENTREE
     NTOT = 4*NVAR+2                                                                                                        ! CALCUL DU NOMBRE TOTAL D'EQUATION
     NUMT = floor((TMAX-TMIN)/PAST)+1                                                                                       ! CALCUL DU NOMBRE D'INTERVALLES D'INTEGRATION
@@ -87,13 +87,23 @@ program main
 
     if(cas==1) then                                                                                                        ! CALCUL DE Ntilde ET DE R EN FONCTION DU CAS (V. ARTICLE)
         NTLD = sum(1./(/((/(POSY-POSX, POSY=POSX+1,NVAR+1)/),POSX=0,NVAR)/)**ALPH)/NVAR
-        forall(POSX=1:NVAR,POSY=1:NVAR) R(POSX,POSY) = abs(POSX-POSY)
     elseif(cas==2) then
         NTLD = sum(2./(/(POSX,POSX=1,NVAR/2-1)/)**ALPH)
-        forall(POSX=1:NVAR,POSY=1:NVAR) R(POSX,POSY) = min(abs(POSX-POSY),NVAR-abs(POSX-POSY))
     endif
-    WHERE(R==0) R=1.                                                                                                       ! CETTE LIGNE SERT A EVITER LES INFINIS DANS LE CALCUL DE 1/R
-    R = R**(-ALPH)                                                                                                         ! CALCUL DE 1/R** ALPHA (POUR EVITER DE REFAIRE LA CALCUL A CHAQUE FOIS)
+
+    if(NTWK==1) then
+        if(cas==1) then                                                                                                    ! CALCUL DE Ntilde ET DE R EN FONCTION DU CAS (V. ARTICLE)
+            forall(POSX=1:NVAR,POSY=1:NVAR) R(POSX,POSY) = abs(POSX-POSY)
+        elseif(cas==2) then
+            forall(POSX=1:NVAR,POSY=1:NVAR) R(POSX,POSY) = min(abs(POSX-POSY),NVAR-abs(POSX-POSY))
+        endif
+        WHERE(R==0) R=1.                                                                                                   ! CETTE LIGNE SERT A EVITER LES INFINIS DANS LE CALCUL DE 1/R
+        R = R**(-ALPH)                                                                                                     ! CALCUL DE 1/R** ALPHA (POUR EVITER DE REFAIRE LA CALCUL A CHAQUE FOIS)
+    else
+        open(10,file='Matrix.dat')
+        read(*,*) R
+        close(10)
+    endif
 
     TINI = TMIN                                                                                                            ! SAUVEGARDE DU TEMPS INITIAL
 
